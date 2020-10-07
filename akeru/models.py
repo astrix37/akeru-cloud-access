@@ -1,4 +1,5 @@
 import boto3
+from akeru.libs.access import remote_akeru_credentials, local_akeru_connection
 from botocore.exceptions import ClientError
 from django.db import models
 from django.contrib.auth.models import User, Group
@@ -10,7 +11,7 @@ from django.utils.translation import gettext_lazy as _
 def choices():
     choice = []
     try:
-        s3 = boto3.client('s3', region_name='ap-southeast-2')
+        s3 = local_akeru_connection('s3')
         policies = s3.list_objects(
             Bucket=settings.POLICY_BUCKET, Prefix=settings.POLICY_PREFIX
         )
@@ -81,7 +82,8 @@ class AccessRole(models.Model):
 
     def save(self, *args, **kwargs):
         if self.role.user and not self.access_key:
-            iam = boto3.client('iam', region_name='ap-southeast-2')
+            creds = remote_akeru_credentials(settings.ACCOUNT_ID)
+            iam = boto3.client('iam', region_name='ap-southeast-2', **creds)
             keys = iam.create_access_key(UserName=self.role.name)['AccessKey']
             self.access_key = keys['AccessKeyId']
             self.secret_key = keys['SecretAccessKey']

@@ -1,3 +1,7 @@
+REMOTE_ACCESS_ROLE = 'akeru-cloud-access'
+ASSUMED_ROLE_TIMEOUT = 60 * 60
+FEDERATED_USER_TIMEOUT = 60 * 60
+
 EC2_TRUST_POLICY = """{
   "Version": "2012-10-17",
   "Statement": [
@@ -23,18 +27,3 @@ LAMBDA_TRUST_POLICY = """{
     }
   ]
 }"""
-
-DEFAULT_TRUST_POLICY = """{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": <custom_trusted_users>
-      },
-      "Action": "sts:AssumeRole",
-      "Condition": {}
-    }
-  ]
-}
-"""

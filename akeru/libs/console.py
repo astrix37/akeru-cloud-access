@@ -4,16 +4,18 @@ import sys
 import requests
 import boto3
 from akeru.models import AccessRole
+from akeru.libs.access import target_role_connection, local_akeru_connection
+from akeru.libs.setting import get_setting
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 
-ROLE_EXPIRY = getattr(settings, 'ASSUMED_ROLE_TIMEOUT', 60*60)
-USER_EXPIRY = getattr(settings, 'FEDERATED_USER_TIMEOUT', 60*60)
+ROLE_EXPIRY = get_setting('ASSUMED_ROLE_TIMEOUT')
+USER_EXPIRY = get_setting('FEDERATED_USER_TIMEOUT')
 
 
 def get_user_managed_policy_arns(user):
     user_policies = []
-    iam = boto3.client('iam', region_name='ap-southeast-2')
+    iam = local_akeru_connection('iam')
     groups = iam.list_groups_for_user(UserName=user)['Groups']
 
     for group in groups:
@@ -25,7 +27,7 @@ def get_user_managed_policy_arns(user):
     return user_policies
 
 
-def __acquire_creds(access_key, secret_key, session_key):
+def __acquire_session(access_key, secret_key, session_key):
     # Step 3: Format resulting temporary credentials into JSON
     url_credentials = {'sessionId': access_key, 'sessionKey': secret_key,
                        'sessionToken': session_key}
@@ -66,29 +68,24 @@ def __acquire_creds(access_key, secret_key, session_key):
 def get_user_session(user, access_role_user):
     access = access_role_user.access_key
     secret = access_role_user.secret_key
-    sts = boto3.client('sts', region_name='ap-southeast-2',
+    sts = boto3.client('sts', region_name='us-east-1',
                        aws_access_key_id=access, aws_secret_access_key=secret)
     session_name = "{}-{}".format(access.role.name, user.username)
     permissions = get_user_managed_policy_arns(access.role.name)
     kwargs = {'Name': session_name, 'PolicyArns': permissions}
     creds = sts.get_federation_token(**kwargs)['Credentials']
-    session_url = __acquire_creds(**creds)
+    session_url = __acquire_session(**creds)
     return session_url
 
 
 def get_role_session(user, access_role_role):
-    sts = boto3.client('sts', region_name='ap-southeast-2')
-    acc_id = 'xxx'
-    target_role = "arn:aws:iam::{}:role/{}".format(
-        acc_id, access_role_role.role.name
+    creds = target_role_connection(
+        role_name=access_role_role.role.name,
+        account_id=settings.ACCOUNT_ID,
+        session_name=user.username,
+        expiry=60 * 15
     )
-    cred_object = sts.assume_role(
-        RoleArn=target_role,
-        RoleSessionName=user.username,
-        DurationSeconds=60 * 15
-    )
-    creds = cred_object['Credentials']
-    session_url = __acquire_creds(**creds)
+    session_url = __acquire_session(**creds)
     return session_url
 
 

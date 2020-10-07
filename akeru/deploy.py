@@ -1,25 +1,15 @@
-import boto3
 import json
 from django.conf import settings
-from akeru.app_settings import EC2_TRUST_POLICY, LAMBDA_TRUST_POLICY, \
-    DEFAULT_TRUST_POLICY
+from akeru.libs.access import local_akeru_connection
+from akeru.libs.setting import get_setting
 
-EC2_POLICY = getattr(settings, 'EC2_TRUST_POLICY', EC2_TRUST_POLICY)
-LAMBDA_POLICY = getattr(settings, 'LAMBDA_TRUST_POLICY', LAMBDA_TRUST_POLICY)
-
-if hasattr(settings, 'DEFAULT_TRUST_POLICY'):
-    DEFAULT_POLICY = settings.DEFAULT_TRUST_POLICY
-elif hasattr(settings, 'DEFAULT_TRUSTED_USERS'):
-    DEFAULT_POLICY = DEFAULT_TRUST_POLICY.replace(
-        "<custom_trusted_users>", json.dumps(settings.DEFAULT_TRUSTED_USERS)
-    )
-else:
-    raise Exception("Please provide django settings for DEFAULT_TRUST_POLICY "
-                    "or DEFAULT_TRUSTED_USERS")
+EC2_POLICY = get_setting('EC2_TRUST_POLICY')
+LAMBDA_POLICY = get_setting('LAMBDA_TRUST_POLICY')
+DEFAULT_POLICY = get_setting('DEFAULT_POLICY')
 
 
 def get_or_create_role(role_name, trust_policy):
-    iam = boto3.client('iam', region_name='ap-southeast-2')
+    iam = local_akeru_connection('iam')
     try:
         role = iam.get_role(RoleName=role_name)['Role']
         iam.update_assume_role_policy(
@@ -33,7 +23,7 @@ def get_or_create_role(role_name, trust_policy):
 
 
 def get_or_create_user(user_name):
-    iam = boto3.client('iam', region_name='ap-southeast-2')
+    iam = local_akeru_connection('iam')
     try:
         return iam.get_user(UserName=user_name)['User']
     except iam.exceptions.NoSuchEntityException:
@@ -52,7 +42,7 @@ def get_trust_policy(aws_role):
 
 
 def get_or_create_instance_profile(aws_role):
-    iam = boto3.client('iam', region_name='ap-southeast-2')
+    iam = local_akeru_connection('iam')
     try:
         return iam.get_instance_profile(InstanceProfileName=aws_role.name)
     except iam.exceptions.NoSuchEntityException:
@@ -60,21 +50,19 @@ def get_or_create_instance_profile(aws_role):
 
 
 def create_policy(source_policy, target_name):
-    iam = boto3.client('iam', region_name='ap-southeast-2')
-    s3 = boto3.client('s3', region_name='ap-southeast-2')
-    sts = boto3.client("sts", region_name='ap-southeast-2')
+    iam = local_akeru_connection('iam')
+    s3 = local_akeru_connection('s3')
+    sts = local_akeru_connection('sts')
     acc = sts.get_caller_identity()['Account']
     target_policy_arn = "arn:aws:iam::{}:policy/{}".format(acc, target_name)
     key = "<key>"
 
-    if not hasattr(settings, 'POLICY_PREFIX'):
-        raise Exception("Please provide django setting 'POLICY_PREFIX'")
-    if not hasattr(settings, 'POLICY_BUCKET'):
-        raise Exception("Please provide django settings 'POLICY_BUCKET'")
+    prefix = get_setting('POLICY_PREFIX')
+    bucket = get_setting('POLICY_BUCKET')
 
     try:
-        key = "".join([settings.POLICY_PREFIX, "/", source_policy, ".json"])
-        source_s3_file = s3.get_object(Bucket=settings.POLICY_BUCKET, Key=key)
+        key = "".join([prefix, "/", source_policy, ".json"])
+        source_s3_file = s3.get_object(Bucket=bucket, Key=key)
         source_policy_content = source_s3_file['Body'].read().decode('ascii')
     except Exception as ex:
         raise Exception("Unable to find {}: {}".format(key, str(ex)))
@@ -99,7 +87,7 @@ def create_policy(source_policy, target_name):
 
 
 def get_or_create_group(group_name):
-    iam = boto3.client('iam', region_name='ap-southeast-2')
+    iam = local_akeru_connection('iam')
 
     try:
         return iam.get_group(GroupName=group_name)['Group']
@@ -108,7 +96,7 @@ def get_or_create_group(group_name):
 
 
 def create_user(aws_role):
-    iam = boto3.client('iam', region_name='ap-southeast-2')
+    iam = local_akeru_connection('iam')
 
     # Update policy and create group / user
     target_policy_arn = create_policy(aws_role.policy, aws_role.name)
@@ -136,7 +124,7 @@ def create_user(aws_role):
 
 
 def create_role(aws_role):
-    iam = boto3.client('iam', region_name='ap-southeast-2')
+    iam = local_akeru_connection('iam')
 
     # Update policy and create role
     target_plcy_arn = create_policy(aws_role.policy, aws_role.name)

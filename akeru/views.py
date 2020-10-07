@@ -9,7 +9,7 @@ from itertools import chain
 
 
 class IndexView(TemplateView):
-    template_name = 'cloudaccess/index.html'
+    template_name = 'akeru/index.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -18,7 +18,7 @@ class IndexView(TemplateView):
 
 
 class AccessView(LoginRequiredMixin, ListView):
-    template_name = 'cloudaccess/access.html'
+    template_name = 'akeru/access.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
