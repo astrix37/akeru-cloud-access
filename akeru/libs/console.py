@@ -4,7 +4,7 @@ import sys
 import requests
 import boto3
 from akeru.models import AccessRole
-from akeru.libs.access import target_role_connection, local_akeru_connection
+from akeru.libs.access import target_role_credentials, local_akeru_connection
 from akeru.libs.setting import get_setting
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
@@ -27,10 +27,14 @@ def get_user_managed_policy_arns(user):
     return user_policies
 
 
-def __acquire_session(access_key, secret_key, session_key):
+def __acquire_session(aws_access_key_id, aws_secret_access_key,
+                      aws_session_token):
     # Step 3: Format resulting temporary credentials into JSON
-    url_credentials = {'sessionId': access_key, 'sessionKey': secret_key,
-                       'sessionToken': session_key}
+    url_credentials = {
+        'sessionId': aws_access_key_id,
+        'sessionKey': aws_secret_access_key,
+        'sessionToken': aws_session_token
+    }
     json_credential_string = json.dumps(url_credentials)
 
     # Step 4. Make request to AWS federation endpoint to get sign-in token.
@@ -70,22 +74,27 @@ def get_user_session(user, access_role_user):
     secret = access_role_user.secret_key
     sts = boto3.client('sts', region_name='us-east-1',
                        aws_access_key_id=access, aws_secret_access_key=secret)
-    session_name = "{}-{}".format(access.role.name, user.username)
-    permissions = get_user_managed_policy_arns(access.role.name)
+    session_name = "{}-{}".format(access_role_user.role.name, user.username)
+    permissions = get_user_managed_policy_arns(access_role_user.role.name)
     kwargs = {'Name': session_name, 'PolicyArns': permissions}
-    creds = sts.get_federation_token(**kwargs)['Credentials']
+    response = sts.get_federation_token(**kwargs)['Credentials']
+    creds = {
+        'aws_access_key_id': response['AccessKeyId'],
+        'aws_secret_access_key': response['SecretAccessKey'],
+        'aws_session_token': response['SessionToken']
+    }
     session_url = __acquire_session(**creds)
     return session_url
 
 
 def get_role_session(user, access_role_role):
-    creds = target_role_connection(
+    creds = target_role_credentials(
         role_name=access_role_role.role.name,
         account_id=settings.ACCOUNT_ID,
         session_name=user.username,
         expiry=60 * 15
     )
-    session_url = __acquire_session(**creds)
+    session_url = __acquire_session()
     return session_url
 
 

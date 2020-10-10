@@ -1,11 +1,9 @@
-import json
-from django.conf import settings
 from akeru.libs.access import local_akeru_connection
 from akeru.libs.setting import get_setting
 
 EC2_POLICY = get_setting('EC2_TRUST_POLICY')
 LAMBDA_POLICY = get_setting('LAMBDA_TRUST_POLICY')
-DEFAULT_POLICY = get_setting('DEFAULT_POLICY')
+DEFAULT_TRUST_POLICY = get_setting('DEFAULT_TRUST_POLICY')
 
 
 def get_or_create_role(role_name, trust_policy):
@@ -38,7 +36,7 @@ def get_trust_policy(aws_role):
     elif aws_role.aws_lambda:
         return LAMBDA_POLICY
     else:
-        return DEFAULT_POLICY
+        return DEFAULT_TRUST_POLICY
 
 
 def get_or_create_instance_profile(aws_role):

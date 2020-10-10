@@ -54,7 +54,7 @@ Recommended not to change
 
 ### Required Setup
 #### Akeru Application Policy 
-create this IAM role and assign credentials to Akeru
+Create this IAM role and assign credentials to Akeru
 ```
 
 {
@@ -74,8 +74,9 @@ create this IAM role and assign credentials to Akeru
 }
 ``` 
 
-####Akeru Remote Policy 
-create this IAM role and allow the previous role to assume it
+#### Akeru Remote Policy 
+Create this IAM role and allow the previous role to assume it. This will need to be the same as the default trust policy
+specified below.
 ```
 
 {
@@ -85,8 +86,8 @@ create this IAM role and allow the previous role to assume it
             "Sid": "VisualEditor0",
             "Effect": "Allow",
             "Action": [
-                "iam:*",
-            ]
+                "iam:*"
+            ],
             "Resource": "*"
         }
     ]
@@ -102,7 +103,9 @@ DEFAULT_TRUST_POLICY = """{
     {
       "Effect": "Allow",
       "Principal": {
-        "AWS": arn:aws:iam::<ACCOUNT_ID>:role/<name_of_local_akeru_role>
+        "AWS": [
+            "arn:aws:iam::<ACCOUNT_ID>:role/<name_of_local_akeru_role>"
+        ]
       },
       "Action": "sts:AssumeRole",
       "Condition": {}

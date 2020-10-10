@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="akeru-cloud-access",
-    version="0.0.2",
+    version="0.0.3",
     author="Alexander Colvin",
     author_email="alexander.colvin@hotmail.com",
     description="A Django package that supports creation of IAM users/roles"
